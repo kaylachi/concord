@@ -212,8 +212,9 @@ software: per asset and per seat.
 ## Contributing
 
 Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup and the
-rules that matter, and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how the code fits
-together. To read the ledger from a new source, see
+rules that matter, [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how the code fits
+together, and [`docs/contributing/review-checklist.md`](./docs/contributing/review-checklist.md)
+for what reviewers check on every pull request. To read the ledger from a new source, see
 [`docs/contributing/chain-source.md`](./docs/contributing/chain-source.md). Report security problems
 privately, as described in [`SECURITY.md`](./SECURITY.md).
 Everyone taking part is expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
