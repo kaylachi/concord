@@ -11,7 +11,8 @@ manual. Concord does it from ledger events.
 corporate-actions engine, controls log and audit export run end to end behind sign-in, with a
 private workspace per organisation. It has been exercised against Stellar mainnet: watching
 Franklin Templeton's BENJI, Concord's unit total matched Horizon's own figure to the last decimal,
-and a register built from the chain's holdings reconciled clean across all 1,005 positions. No
+and a register built from the chain's holdings reconciled clean across all 1,005 positions (see
+reproduction steps in [`docs/evidence/benji-mainnet.md`](./docs/evidence/benji-mainnet.md)). No
 customer has used it. The product brief and kill criteria are in [`BRIEF.md`](./BRIEF.md).
 
 ## Run it
