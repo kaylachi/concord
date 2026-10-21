@@ -95,6 +95,11 @@ Types in use are `feat`, `fix`, `docs`, `build`, `test` and `chore`. Examples:
 `chore:` take no scope when they cover the whole repository. Keep the subject short and say why in
 the body when it is not obvious.
 
+If the change is user-visible or touches a schema (`CONTROL_MIGRATIONS` or `ORG_MIGRATIONS` in
+`services/api/src/schema.ts`), add a line to the `Unreleased` section of
+[`CHANGELOG.md`](./CHANGELOG.md) in the same pull request; that file says how commit types map
+to sections. Internal refactorings and docs-only changes need no entry.
+
 ## Adding a break type
 
 Search for an existing type, such as `STATUS_MISMATCH`, to find every place that has to change.
@@ -110,3 +115,17 @@ view (`apps/web/src/breaks.tsx`). Movement and distribution breaks follow the sa
 
 By taking part you agree to follow the [Code of Conduct](./CODE_OF_CONDUCT.md). By contributing
 you agree that your contribution is licensed under the [MIT license](./LICENSE).
+
+
+## CI checks
+
+Every pull request runs the `CI` workflow on a matrix. All three jobs must be green before merging:
+
+- `check (ubuntu-latest, node 24.11)` runs on the pinned Node 24 minor
+- `check (ubuntu-latest, node 24.x)` runs on the latest Node 24
+- `check (macos-latest, node 24.x)` runs on macOS, to catch `node:sqlite` differences
+
+Each job has a 15 minute timeout, so a stuck run fails instead of hanging.
+
+Coverage, the accessibility checks and the browser smoke test run only on the
+`ubuntu-latest` / Node 24.x job, because they upload artifacts and need a browser.
