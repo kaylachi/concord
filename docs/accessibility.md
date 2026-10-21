@@ -6,7 +6,7 @@ Concord is committed to providing a dashboard and interface accessible to all fi
 
 ## 1. Conformance Target
 
-Our baseline target is **WCAG 2.2 Level AA** conformance across the dashboard ([`apps/web`](file:///C:/Users/lenovo/wave-work/concord/apps/web)) and its reporting views.
+Our baseline target is **WCAG 2.2 Level AA** conformance across the dashboard ([`apps/web`](../apps/web)) and its reporting views.
 
 We design and test for:
 - Keyboard-only navigation without mouse dependency.
@@ -21,21 +21,21 @@ We design and test for:
 The dashboard incorporates core accessibility patterns directly in the source:
 
 ### Skip Navigation
-- **Location:** [`apps/web/src/App.tsx:112`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/App.tsx)
+- **Location:** [`apps/web/src/App.tsx:112`](../apps/web/src/App.tsx)
 - A skip-to-content link (`<a href="#content" className="sr-only focus:not-sr-only ...">Skip to content</a>`) is rendered as the first element in the DOM, allowing keyboard and screen-reader users to bypass primary asset and workspace navigation directly to main data views.
 
 ### Navigation Landmarks & State
 - **Semantic Navigation:** Primary asset selectors and section tabs are wrapped in semantic `<nav>` landmarks with descriptive `aria-label` attributes (`aria-label="Assets"`, `aria-label="Sections"`).
-- **Active State (`aria-current`):** Navigation links state their active status programmatically using `aria-current="page"` (e.g. [`apps/web/src/App.tsx:135`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/App.tsx)).
+- **Active State (`aria-current`):** Navigation links state their active status programmatically using `aria-current="page"` (e.g. [`apps/web/src/App.tsx:135`](../apps/web/src/App.tsx)).
 - **Descriptive Counter Badges:** Tab links with break counters provide accessible labels (e.g. `aria-label="Reconciliation, 3 open breaks"`), ensuring screen readers announce the exact count and severity without relying on color alone.
 
 ### Controls & Interactive States
-- **Disclosure Controls (`aria-expanded`):** Collapsible panels, asset settings toggles, and expandable break rows indicate their open/closed state via `aria-expanded` (e.g. [`apps/web/src/breaks.tsx`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/breaks.tsx), [`apps/web/src/App.tsx`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/App.tsx)).
-- **Role Radiogroups (`role="radiogroup"`):** Multi-option selectors (such as network switches and role pickers) use `role="radiogroup"` with `aria-checked` states on each option ([`apps/web/src/ui.tsx`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/ui.tsx)).
-- **Busy & Loading States (`aria-busy`):** Asynchronous actions, buttons undergoing requests, and loading skeletons signal work in progress using `aria-busy="true"` and `aria-label="Loading"` ([`apps/web/src/ui.tsx`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/ui.tsx)).
+- **Disclosure Controls (`aria-expanded`):** Collapsible panels, asset settings toggles, and expandable break rows indicate their open/closed state via `aria-expanded` (e.g. [`apps/web/src/breaks.tsx`](../apps/web/src/breaks.tsx), [`apps/web/src/App.tsx`](../apps/web/src/App.tsx)).
+- **Role Radiogroups (`role="radiogroup"`):** Multi-option selectors (such as network switches and role pickers) use `role="radiogroup"` with `aria-checked` states on each option ([`apps/web/src/ui.tsx`](../apps/web/src/ui.tsx)).
+- **Busy & Loading States (`aria-busy`):** Asynchronous actions, buttons undergoing requests, and loading skeletons signal work in progress using `aria-busy="true"` and `aria-label="Loading"` ([`apps/web/src/ui.tsx`](../apps/web/src/ui.tsx)).
 
 ### Forms & Input Labelling
-- Form fields in settings, authentication, and file import workflows specify explicit `<label>` bindings or contextual `aria-label` tags (such as `aria-label="Invitation link"` in [`apps/web/src/Settings.tsx`](file:///C:/Users/lenovo/wave-work/concord/apps/web/src/Settings.tsx)).
+- Form fields in settings, authentication, and file import workflows specify explicit `<label>` bindings or contextual `aria-label` tags (such as `aria-label="Invitation link"` in [`apps/web/src/Settings.tsx`](../apps/web/src/Settings.tsx)).
 - Read-only token and invitation links automatically select text on focus to streamline keyboard copying.
 
 ---

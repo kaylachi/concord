@@ -14,14 +14,26 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    name: check (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: "24.11"
+          - os: ubuntu-latest
+            node: "24.x"
+          - os: macos-latest
+            node: "24.x"
     steps:
       - uses: actions/checkout@v4
       # Version comes from "packageManager" in package.json.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The API and the dashboard import packages/core from its build output, so build first.
@@ -34,10 +46,13 @@ jobs:
         run: pnpm test --sequence.shuffle --sequence.seed=${{ github.run_id }}
 
       - name: Core coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         run: pnpm --filter @concord/core test:coverage
       - name: API coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         run: pnpm --filter @concord/api test:coverage
       - name: Upload lcov reports
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
@@ -47,8 +62,10 @@ jobs:
           if-no-files-found: error
 
       - name: Install Chromium for accessibility checks
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         run: pnpm --filter @concord/web exec playwright install --with-deps chromium
       - name: Run dashboard accessibility checks
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         run: |
           pnpm --filter @concord/web exec vite --host 127.0.0.1 --port 4173 > /tmp/concord-web.log 2>&1 &
           server_pid=$!
@@ -59,9 +76,11 @@ jobs:
           done
           curl --fail http://127.0.0.1:4173/ > /dev/null
           pnpm --filter @concord/web test:a11y
-      - run: pnpm e2e
+      - name: Browser smoke test
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm e2e
       - name: Upload Playwright traces
-        if: failure()
+        if: failure() && matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
