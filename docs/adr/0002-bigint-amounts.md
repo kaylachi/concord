@@ -57,7 +57,7 @@ Instead, `parseUnits` throws on excess precision (`packages/core/src/amount.ts#L
 2. **Third-party decimal libraries (`decimal.js`, `big.js`, `bignumber.js`):**
    Rejected. `@concord/core` is kept free of runtime dependencies (`packages/core/package.json`). Once an asset's `decimals` count is known, every addition, subtraction, comparison, and rational `mulDiv` over smallest-unit `bigint` values is native to the JavaScript engine, faster to replay across thousands of events, and requires ~60 lines of auditable code in [`packages/core/src/amount.ts`](../../packages/core/src/amount.ts).
 3. **Silent rounding on CSV import:**
-   Rejected for the audit integrity reasons above. Only corporate-action entitlement calculations (`packages/core/src/distributions.ts`), where a dividend rate or split ratio mathematically produces sub-unit fractions, apply an explicit `Rounding` rule (`mulDiv`) or drop sub-unit split fractions as documented in `README.md#L168`.
+   Rejected for the audit integrity reasons above. Only corporate-action entitlement calculations (`packages/core/src/distributions.ts`), where a dividend rate or split ratio mathematically produces sub-unit fractions, apply an explicit `Rounding` rule (`mulDiv`) or drop sub-unit split fractions as documented in `docs/limits.md` ("Splits").
 
 ---
 

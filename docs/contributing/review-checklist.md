@@ -93,4 +93,4 @@ This checklist expands the invariants listed in [`.github/PULL_REQUEST_TEMPLATE.
 ## 8. Documentation and Limit Updates
 
 - **Keep docs in sync with code:** If a pull request changes CLI flags, environment variables, database tables, break types, or architectural limits, the corresponding documentation (`README.md`, `.env.example`, `docs/cli.md`, `docs/schema.md`, or `docs/ARCHITECTURE.md`) must be updated in the same pull request.
-- **Read-only posture:** Concord never holds signing keys or submits value-moving transactions (`README.md#L205`). Reject changes that introduce transaction signing inside the product runtime.
+- **Read-only posture:** Concord never holds signing keys or submits value-moving transactions (`docs/overview.md`). Reject changes that introduce transaction signing inside the product runtime.

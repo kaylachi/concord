@@ -99,7 +99,7 @@ Update the user-facing column hints and tables in the web dashboard so operators
    - Update the blank-template expectation (`GET /api/templates/register.csv` in `services/api/test/service.test.ts#L341`) if `REGISTER_COLUMNS`, `JOURNAL_COLUMNS`, or `INSTRUCTION_COLUMNS` changed.
    - Add an import round-trip test verifying the column persists in SQLite and survives reconciliation or audit export.
 3. **Documentation:**
-   - Update the **Input files** table in [`README.md`](../../README.md#L116-L127).
+   - Update the **Input files** table in [`README.md`](../../README.md#input-files).
    - Update [`docs/user-guide.md`](../user-guide.md), [`docs/cli.md`](../cli.md), [`docs/schema.md`](../schema.md), and [`docs/audit-pack.md`](../audit-pack.md) if the column changes user workflows, schema tables, or audit exports.
 4. **Verify everything builds and passes:**
    ```sh

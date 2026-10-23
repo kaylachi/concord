@@ -14,7 +14,7 @@ The classic design is one shared database where every row carries an `org_id` an
 must remember to filter by it. That makes isolation a property of query discipline: hundreds of
 statements, each one a place to forget the filter, and code review the only enforcement.
 
-Concord is also deliberately small: one process on one disk (README, **Limits**, "Scale"), run
+Concord is also deliberately small: one process on one disk (`docs/limits.md`, "Scale"), run
 by an operator, not a fleet.
 
 ## Decision

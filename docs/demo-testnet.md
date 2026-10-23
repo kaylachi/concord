@@ -340,5 +340,5 @@ from the same first ledger.
 - Nothing in this walkthrough touches a real network side: the script is hard-wired to the
   testnet endpoints in [`services/api/src/config.ts`](../services/api/src/config.ts), and
   Concord itself never signs or submits anything. Running it against a real asset is the same
-  walkthrough with higher stakes, which is what the README's limits and prior-art sections are
+  walkthrough with higher stakes, which is what [`limits.md`](./limits.md) and [`prior-art.md`](./prior-art.md) are
   about.

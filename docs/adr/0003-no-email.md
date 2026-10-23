@@ -17,7 +17,7 @@ Integrating email delivery into a self-hosted or regulated application imposes s
 
 ## Decision
 
-Concord does not integrate email transport libraries, background mail queues, or external delivery API integrations. It sends no email whatsoever (`docs/ARCHITECTURE.md`, `README.md`).
+Concord does not integrate email transport libraries, background mail queues, or external delivery API integrations. It sends no email whatsoever (`docs/ARCHITECTURE.md`, `docs/limits.md`).
 
 All identity lifecycle actions rely on out-of-band link distribution and operator CLI execution:
 

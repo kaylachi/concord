@@ -1,7 +1,7 @@
 # Roadmap
 
 Where Concord is going, in now/next/later buckets. The buckets are derived from the limits the
-README states today (README, **Limits**) and from the product brief ([`BRIEF.md`](../BRIEF.md));
+README states today ([`docs/limits.md`](./limits.md)) and from the product brief ([`BRIEF.md`](../BRIEF.md));
 each item names its source. This is a statement of intent, not a commitment with dates — except
 the one external date that shapes everything: **DTCC's tokenization service plans to connect to
 Stellar in H1 2027** (first assets: Russell 1000 stocks, major index ETFs, US Treasuries;
@@ -17,7 +17,7 @@ documentation and feedback from first users, not new surface.
 
 ## Next — removing stated limits
 
-In rough order of pain, each tracing to a line in the README's **Limits** section:
+In rough order of pain, each tracing to a line in [`docs/limits.md`](./limits.md):
 
 1. **Balances held by pools, claimable balances and contracts.** Horizon's trustline listing
    omits them, so a classic asset's opening balances understate supply by whatever they hold.
@@ -36,22 +36,22 @@ In rough order of pain, each tracing to a line in the README's **Limits** sectio
 
 - **DTCC-shaped assets at DTCC scale** (BRIEF.md): corporate-actions and reporting coverage
   evaluated against what the H1 2027 connection actually ships, not guessed at today.
-- **Cash in lieu on splits.** Fractions of the smallest unit are dropped today (README,
-  **Limits**, "Splits"); modelling cash-in-lieu needs terms input and a second pay-asset flow,
+- **Cash in lieu on splits.** Fractions of the smallest unit are dropped today (`docs/limits.md`,
+  "Splits"); modelling cash-in-lieu needs terms input and a second pay-asset flow,
   so it waits for a user who settles fractions that way.
 - **History beyond RPC retention.** Today a gap longer than ~7 days means **Rebuild history**
   from fresh opening balances. A paid archive source could close that, if users need it.
 
 ## What will not be built
 
-- **Custody, keys, or moving money.** Concord is read-only by design (README: "Concord never
+- **Custody, keys, or moving money.** Concord is read-only by design (`docs/overview.md`: "Concord never
   holds keys or moves money"; BRIEF.md, "Why stand-alone": no custody). Anything that would
   require holding a key is out, permanently — it is the property that keeps Concord's
   regulatory load light and its security model honest.
 
 ## How this document changes
 
-A change that removes a limit updates the README's **Limits** section
+A change that removes a limit updates [`docs/limits.md`](./limits.md)
 (`docs/ARCHITECTURE.md`, "Deliberate limits") and should move or delete the matching bullet
 here in the same pull request. The kill criteria for the product as a whole stay in
 `BRIEF.md`.

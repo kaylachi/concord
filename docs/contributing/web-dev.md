@@ -130,7 +130,7 @@ or the asset has no trustlines yet. Wait a few seconds and reload. If it stays e
 check the asset's settings page for an indexer error.
 - `**The dashboard says history is incomplete.** Stellar RPC keeps about seven days of
 events. An asset that has been active longer than that has history that cannot be
-queried. This is expected and documented in the root README ("Limits"). Use **Rebuild
+queried. This is expected and documented in [`docs/limits.md`](../limits.md). Use **Rebuild
 history** in the asset's settings to restart from fresh opening balances.
 - **Changes to the dashboard do not appear.** Vite reloads on save. If it does not,
 check the Vite terminal for a compile error, then reload the page. A full restart of

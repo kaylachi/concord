@@ -1,7 +1,7 @@
 # Contributing to Concord
 
 Thanks for looking. Concord reconciles tokenized securities on Stellar against the official
-register. Before you start, read the [README](./README.md) for what it does and its stated limits,
+register. Before you start, read the [README](./README.md) and [`docs/overview.md`](./docs/overview.md) for what it does, [`docs/limits.md`](./docs/limits.md) for its stated limits,
 and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how the code is laid out.
 
 ## Set up
@@ -130,3 +130,19 @@ Each job has a 15 minute timeout, so a stuck run fails instead of hanging.
 
 Coverage, the accessibility checks and the browser smoke test run only on the
 `ubuntu-latest` / Node 24.x job, because they upload artifacts and need a browser.
+
+## More guides
+
+- [`docs/MAINTAINERS.md`](./docs/MAINTAINERS.md): triage, merge and release rules.
+- [`docs/contributing/review-checklist.md`](./docs/contributing/review-checklist.md): what reviewers check on every pull request.
+- [`docs/contributing/web-dev.md`](./docs/contributing/web-dev.md): running the dashboard locally against testnet or a fake chain.
+- [`docs/contributing/chain-source.md`](./docs/contributing/chain-source.md): reading the ledger from a new source.
+- [`docs/contributing/core-tests.md`](./docs/contributing/core-tests.md): testing guidelines in `packages/core`.
+- [`docs/contributing/csv-column.md`](./docs/contributing/csv-column.md): adding a column to the register, journal or instructions CSV.
+- [`docs/contributing/migrations.md`](./docs/contributing/migrations.md): adding a database migration safely.
+- [`docs/contributing/good-first-issues.md`](./docs/contributing/good-first-issues.md): how issues are labelled, and where to start.
+- [`docs/breaks.md`](./docs/breaks.md): the break-type glossary.
+- [`docs/accessibility.md`](./docs/accessibility.md): the accessibility statement and conformance goals.
+- [`docs/FAQ.md`](./docs/FAQ.md): frequently asked questions.
+- [`docs/adr/0005-hash-routing-same-origin.md`](./docs/adr/0005-hash-routing-same-origin.md): why the dashboard uses hash routing and is served from the API's origin.
+- [`docs/SECURITY-MODEL.md`](./docs/SECURITY-MODEL.md): trust boundaries, cookies, rate limits, and what an operator can see.

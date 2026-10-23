@@ -10,13 +10,13 @@ Yes. Concord is strictly read-only:
 
 - **No custody or signing:** Concord never creates, holds, or accesses private keys, and it provides no endpoints or workflows to sign or submit transactions to the Stellar network ([`services/api/src/chain.ts`](../services/api/src/chain.ts), [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md#L4-L6)).
 - **Query-only network activity:** Ledger interaction is confined to querying Stellar RPC (`getEvents`, `getHealth`, `getLedgerEntries`) and Horizon endpoints (`/accounts`, `/assets`) ([`services/api/src/chain.ts`](../services/api/src/chain.ts#L307-L329)).
-- **Reconciliation only:** It compares on-chain events against off-chain books (register, journal, and instruction CSVs) uploaded by workspace users. It never moves funds or executes corporate actions on-chain ([`BRIEF.md`](../BRIEF.md#L29), [`README.md`](../README.md#L197)).
+- **Reconciliation only:** It compares on-chain events against off-chain books (register, journal, and instruction CSVs) uploaded by workspace users. It never moves funds or executes corporate actions on-chain ([`BRIEF.md`](../BRIEF.md#L29), [`docs/overview.md`](./overview.md#what-it-does)).
 
 ---
 
 ### Why does Concord not send email?
 
-Concord deliberately avoids sending emails for sign-ups, invitations, or password resets ([`README.md`](../README.md#L42-L46), [`README.md`](../README.md#L146-L147)):
+Concord deliberately avoids sending emails for sign-ups, invitations, or password resets ([`README.md`](../README.md#accounts-and-workspaces), [`docs/limits.md`](./limits.md)):
 
 - **Zero external dependencies:** Concord requires no external SMTP server, mail relay (e.g. SendGrid, Amazon SES), or DNS configuration (SPF, DKIM, DMARC) to deploy and run.
 - **Operator-controlled distribution:** Workspace owners generate invitation links directly through the dashboard and distribute them over their organisation's secure communications channels. Password resets are generated on-demand by administrators via the CLI (`pnpm concord reset-link EMAIL`; see [`services/api/src/cli.ts`](../services/api/src/cli.ts#L86-L94) and [`services/api/src/auth.ts`](../services/api/src/auth.ts)).
@@ -39,15 +39,15 @@ Concord uses Node's native `node:sqlite` in WAL (Write-Ahead Logging) mode ([`se
 
 Concord supports regulated tokens on Stellar using CAP-67 event indexing ([`packages/core/src/events.ts`](../packages/core/src/events.ts), [`services/api/src/chain.ts`](../services/api/src/chain.ts#L80-L89)):
 
-- **Classic Stellar assets:** Identified by `CODE:ISSUER` (Alphanumeric 4 or 12 code and an Ed25519 issuer public key). Classic assets have fixed 7-decimal precision. Concord establishes a baseline by fetching opening trustline balances from Horizon (`chain.ts#L376-L401`) and indexes subsequent CAP-67 events from that ledger forward. Note that Horizon trustline queries do not capture balances locked in liquidity pools, claimable balances, or smart contracts ([`README.md`](../README.md#L132-L136)).
-- **Contract tokens (SEP-41):** Identified by a Soroban contract address (`C...`). Decimals are read from the contract instance storage (`describeInstance` in `chain.ts#L465-L512`) or provided when watching the asset. Contract tokens that do not wrap a classic asset have no Horizon opening balances; their holdings count movements from the oldest ledger retained by RPC history ([`README.md`](../README.md#L137-L140)).
+- **Classic Stellar assets:** Identified by `CODE:ISSUER` (Alphanumeric 4 or 12 code and an Ed25519 issuer public key). Classic assets have fixed 7-decimal precision. Concord establishes a baseline by fetching opening trustline balances from Horizon (`chain.ts#L376-L401`) and indexes subsequent CAP-67 events from that ledger forward. Note that Horizon trustline queries do not capture balances locked in liquidity pools, claimable balances, or smart contracts ([`docs/limits.md`](./limits.md)).
+- **Contract tokens (SEP-41):** Identified by a Soroban contract address (`C...`). Decimals are read from the contract instance storage (`describeInstance` in `chain.ts#L465-L512`) or provided when watching the asset. Contract tokens that do not wrap a classic asset have no Horizon opening balances; their holdings count movements from the oldest ledger retained by RPC history ([`docs/limits.md`](./limits.md)).
 - **Tracked event types:** Concord indexes standard CAP-67 operations: `transfer`, `mint`, `burn`, `clawback`, and `set_authorized` ([`packages/core/src/events.ts`](../packages/core/src/events.ts#L6-L10), [`services/api/src/chain.ts`](../services/api/src/chain.ts#L108-L149)).
 
 ---
 
 ### How does mainnet versus testnet operation work?
 
-Concord natively serves both Stellar Mainnet and Testnet ([`services/api/src/config.ts`](../services/api/src/config.ts), [`README.md`](../README.md#L27-L35)):
+Concord natively serves both Stellar Mainnet and Testnet ([`services/api/src/config.ts`](../services/api/src/config.ts), [`README.md`](../README.md#run-it)):
 
 - **Dashboard switching:** Users can switch between networks at any time using the network toggle at the top left of the dashboard.
 - **Concurrent indexing:** A workspace can watch assets on both Mainnet and Testnet concurrently. The indexer synchronises networks side-by-side so delays or issues on one network do not stall the other ([`services/api/src/concord.ts`](../services/api/src/concord.ts#L498-L516)).
@@ -78,7 +78,7 @@ When an operator acknowledges or resolves a reconciliation break, Concord record
 
 ### What happens if the indexer is offline for more than 7 days?
 
-Stellar RPC nodes retain ledger event history for approximately seven days ([`README.md`](../README.md#L132,L141-L143)):
+Stellar RPC nodes retain ledger event history for approximately seven days ([`docs/limits.md`](./limits.md)):
 
 - **Gap detection:** When Concord resumes indexing after downtime, it compares its saved cursor ledger against the oldest ledger still retained by the RPC node (`at + 1 < head.oldest` in [`services/api/src/concord.ts`](../services/api/src/concord.ts#L523-L529)). If the cursor is older than the RPC retention window, intermediate events are missing.
 - **Indexing stops:** Concord immediately halts indexing for that asset and sets a `sync_error` explaining that events were lost. This prevents the system from computing corrupted or incomplete holdings.
@@ -88,7 +88,7 @@ Stellar RPC nodes retain ledger event history for approximately seven days ([`RE
 
 ### How is Concord licensed?
 
-Concord is open-source software distributed under the **MIT License** ([`LICENSE`](../LICENSE), [`README.md`](../README.md#L211-L213)):
+Concord is open-source software distributed under the **MIT License** ([`LICENSE`](../LICENSE), [`README.md`](../README.md#license)):
 
 - Permission is granted free of charge to any person obtaining a copy of the software to deal in the Software without restriction, including the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies.
 - The software is provided "as is", without warranty of any kind.

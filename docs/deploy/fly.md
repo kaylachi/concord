@@ -67,7 +67,7 @@ Key settings verified against [`services/api/src/config.ts`](../../services/api/
 - **`CONCORD_DATA_DIR = "/data"`:** Matches the `Dockerfile` default (`Dockerfile#L35`) where the `concord_data` volume is mounted.
 - **`CONCORD_PUBLIC_URL`:** Must be the `https://` origin users open in their browser. It determines `Secure` session cookie flags and the Google OAuth callback URL (`services/api/src/config.ts#L54-L55`).
 - **`CONCORD_TRUST_PROXY = "1"`:** Tells Concord to trust one `X-Forwarded-For` hop from Fly's edge proxy for per-IP rate limiting (`services/api/src/config.ts#L171`, `services/api/src/auth-api.ts#L27`).
-- **`auto_stop_machines = "off"`:** Keeps the background indexer running continuously so watched assets do not fall behind the Stellar RPC retention window (`README.md#L158-L160`).
+- **`auto_stop_machines = "off"`:** Keeps the background indexer running continuously so watched assets do not fall behind the Stellar RPC retention window (`docs/limits.md`, "Gaps").
 
 ---
 

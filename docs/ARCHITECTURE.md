@@ -108,6 +108,6 @@ real password hashing at a low cost. The dashboard has no automated tests yet.
 
 ## Deliberate limits
 
-Documented in the README under **Limits**: RPC history of about seven days, supply understated by
+Documented in [`docs/limits.md`](./limits.md): RPC history of about seven days, supply understated by
 pool/claimable/contract balances for classic assets, one process and one disk, no email ([`docs/adr/0003-no-email.md`](./adr/0003-no-email.md)). Changes
-that remove a limit should update that section.
+that remove a limit should update that file.

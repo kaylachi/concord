@@ -129,7 +129,7 @@ A **Multiplexed Account (muxed account)**, defined in **CAP-27** and **SEP-23**,
   const ADDRESS = /^[GCMLB][A-Z2-7]{55,}$/;
   ```
   `M` represents muxed addresses. When a transfer specifies a muxed destination, Concord unwraps the destination map to extract the underlying transfer value (`services/api/src/chain.ts:135-136`).
-- In register reconciliation, multiple register holders can be mapped to the same underlying omnibus Stellar account (`README.md:120`).
+- In register reconciliation, multiple register holders can be mapped to the same underlying omnibus Stellar account (`README.md`, *Input files*).
 
 ---
 
@@ -140,7 +140,7 @@ A **Liquidity Pool** is an automated market maker (AMM) reserve on the Stellar p
 - Balances deposited into liquidity pools are held by the pool contract rather than an individual user account trustline.
 
 ### Accounting Impact in Concord
-Horizon's `/accounts` endpoint pages through individual account trustlines, but does **not** enumerate balances held inside liquidity pool shares or smart contract storage (`services/api/src/chain.ts:373-375`, `README.md:134-135`).
+Horizon's `/accounts` endpoint pages through individual account trustlines, but does **not** enumerate balances held inside liquidity pool shares or smart contract storage (`services/api/src/chain.ts:373-375`, `docs/limits.md`).
 
 Consequently, if a tokenized asset has units deposited into an AMM pool, Concord's opening baseline will reflect only individual trustline balances. The difference is recognized as unmapped circulating supply until pool movements are accounted for.
 
@@ -153,7 +153,7 @@ A **Claimable Balance** (introduced in **CAP-23**) allows an account to transfer
 - While pending claim, the tokens reside in the claimable balance ledger entry, outside of the sender's and receiver's account trustlines.
 
 ### Accounting Impact in Concord
-Because Horizon `/accounts` queries do not return tokens currently escrowed in claimable balance entries, an opening baseline taken while balances are in transit will understate total on-chain supply by the escrowed quantity (`services/api/src/chain.ts:373-375`, `README.md:134-135`). Once claimed, the tokens enter a holder's trustline and are tracked via standard CAP-67 transfer events.
+Because Horizon `/accounts` queries do not return tokens currently escrowed in claimable balance entries, an opening baseline taken while balances are in transit will understate total on-chain supply by the escrowed quantity (`services/api/src/chain.ts:373-375`, `docs/limits.md`). Once claimed, the tokens enter a holder's trustline and are tracked via standard CAP-67 transfer events.
 
 ---
 
@@ -177,4 +177,4 @@ When watching a classic asset (`concord watch`, `services/api/src/concord.ts:405
 3. It then starts indexing CAP-67 events from `baseline_ledger + 1` onward.
 4. During holdings replay, any event prior to a holder's opening cutoff is skipped to prevent double counting (`packages/core/src/holdings.ts:72-78`).
 
-Contract tokens (SEP-41) that are not classic assets do not expose a trustline endpoint in Horizon; they must be indexed within the RPC's event retention window or initialized without a baseline (`services/api/src/concord.ts:472`, `README.md:137-140`).
+Contract tokens (SEP-41) that are not classic assets do not expose a trustline endpoint in Horizon; they must be indexed within the RPC's event retention window or initialized without a baseline (`services/api/src/concord.ts:472`, `docs/limits.md`).

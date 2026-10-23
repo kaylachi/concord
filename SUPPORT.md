@@ -33,7 +33,7 @@ in. If a security problem is any part of what you found, use the private route f
 - What you did, what you expected, and what happened instead; exact error text helps.
 - For indexing or reconciliation questions: the network (mainnet or testnet) and the asset's
   code or contract id. **Never attach a real register, journal or holder data** — reproduce
-  with the testnet practice asset (`pnpm demo:testnet`, see the README) or invented figures
+  with the testnet practice asset (`pnpm demo:testnet`, see [`docs/demo-testnet.md`](./docs/demo-testnet.md)) or invented figures
   instead.
 - For deployment questions: how it is deployed (the Dockerfile, the Render blueprint, or bare
   `pnpm start`) and the relevant `CONCORD_*` settings **with secrets removed**.

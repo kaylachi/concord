@@ -54,7 +54,7 @@ This provides two key benefits:
 
 ### 2. Keeping Invitation and Reset Tokens Out of Server Logs
 
-Concord deliberately sends no automated emails ([`README.md`](../../README.md#L42-L45,L146-L147)). Workspace owners generate invitation links and share them directly ([`apps/web/src/Settings.tsx#L80-L135`]), and administrators generate password reset links via the CLI ([`services/api/src/cli.ts#L121-L124`]).
+Concord deliberately sends no automated emails ([`README.md`](../../README.md#accounts-and-workspaces), [`docs/limits.md`](../limits.md)). Workspace owners generate invitation links and share them directly ([`apps/web/src/Settings.tsx#L80-L135`]), and administrators generate password reset links via the CLI ([`services/api/src/cli.ts#L121-L124`]).
 
 These links contain high-entropy, secret one-time tokens:
 - **Invitation links:** `${options.publicUrl}/#/invite/${token}` ([`services/api/src/api.ts#L140`]).

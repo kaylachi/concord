@@ -12,8 +12,8 @@ custodian or fund administrator. The chain side is read from RPC and Horizon; th
 register, journal and instruction file that a user uploads. The output is a set of breaks, a
 controls log and an audit export.
 
-The README states it in one line — "Read-only. Concord never holds keys or moves money."
-(`README.md`, *What it does*) — and `docs/ARCHITECTURE.md` says the process "never signs or submits
+The overview states it in one line — "Read-only. Concord never holds keys or moves money."
+(`docs/overview.md`, *What it does*) — and `docs/ARCHITECTURE.md` says the process "never signs or submits
 anything". Both sentences were assertions without an argument behind them. This ADR records the
 decision, what it costs, and the exception that `pnpm demo:testnet` makes.
 
@@ -203,7 +203,7 @@ enforced by module boundaries and a test rather than by absence of the SDK.
 
 ## References
 
-- `README.md` — *What it does*: "Read-only. Concord never holds keys or moves money."
+- `docs/overview.md` — *What it does*: "Read-only. Concord never holds keys or moves money."
 - `docs/ARCHITECTURE.md` — "It never signs or submits anything."
 - `services/api/src/chain.ts:2` — the SDK surface the indexer uses (decoders only)
 - `services/api/src/concord.ts:1180` — `reconcileAction`: entitlements vs observed flows
