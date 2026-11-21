@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { pathToFileURL } from "node:url";
 import { backup } from "node:sqlite";
 import { parseArgs } from "node:util";
 import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
@@ -14,9 +15,12 @@ function table(rows: Array<Record<string, unknown>>): void {
   console.table(rows);
 }
 
-async function main(): Promise<void> {
+export async function runCli(
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const { positionals, values } = parseArgs({
-    args: process.argv.slice(2),
+    args: argv,
     allowPositionals: true,
     options: {
       org: { type: "string" },
@@ -40,6 +44,7 @@ async function main(): Promise<void> {
       csv: { type: "string" },
       out: { type: "string" },
       note: { type: "string" },
+      limit: { type: "string" },
       json: { type: "boolean" },
       yes: { type: "boolean", short: "y" },
       help: { type: "boolean", short: "h" },
@@ -49,17 +54,18 @@ async function main(): Promise<void> {
   if (!command || values.help) return console.log(USAGE);
   if (command === "serve") return startServer();
 
-  const config = loadConfig();
+  const config = loadConfig(env);
   const runtime = openRuntime(config);
-  const { auth, tenants } = runtime;
-  const actor: Actor = { id: "cli", label: `cli:${userInfo().username}` };
-  const need = (value: string | undefined, what: string): string => {
-    if (!value) throw new Error(`missing ${what}\n\n${USAGE}`);
-    return value;
-  };
-  const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []);
-  const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
-  const orgRef = values.org ?? process.env.CONCORD_ORG;
+  try {
+    const { auth, tenants } = runtime;
+    const actor: Actor = { id: "cli", label: `cli:${userInfo().username}` };
+    const need = (value: string | undefined, what: string): string => {
+      if (!value) throw new Error(`missing ${what}\n\n${USAGE}`);
+      return value;
+    };
+    const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []);
+    const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
+    const orgRef = values.org ?? env.CONCORD_ORG;
   const workspace = (): Concord => tenants.forOrg(auth.findOrg(need(orgRef, "--org (see `concord orgs`)")).id);
   const printRun = (run: Awaited<ReturnType<Concord["reconcile"]>>) => {
     if (values.json) return out(run);
@@ -231,6 +237,34 @@ async function main(): Promise<void> {
     case "reconcile":
       printRun(await workspace().reconcile(need(a, "asset"), values.register ? Number(values.register) : undefined, actor));
       break;
+    case "runs": {
+      const limit = values.limit ? Number(values.limit) : undefined;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error("--limit must be a positive integer");
+      }
+      const all = workspace().runs(need(a, "asset"));
+      const items = limit !== undefined ? all.slice(0, limit) : all;
+      if (values.json) {
+        out(items);
+        break;
+      }
+      table(
+        items.map((r) => ({
+          id: r.id,
+          asOf: r.asOf,
+          status: r.status,
+          openBreaks: r.openBreaks,
+        })),
+      );
+      break;
+    }
+    case "run": {
+      const concord = workspace();
+      const id = Number(need(a, "run id"));
+      if (!Number.isSafeInteger(id) || id < 1) throw new Error("run id must be a positive integer");
+      printRun(concord.run(id));
+      break;
+    }
     case "action": {
       const type = need(b, "action type") as ActionInput["type"];
       const input: ActionInput = { type, recordTime: need(values.record, "--record"), exclude: list(values.exclude) };
@@ -297,10 +331,22 @@ async function main(): Promise<void> {
     default:
       throw new Error(`unknown command "${command}"\n\n${USAGE}`);
   }
-  runtime.close();
+  } finally {
+    runtime.close();
+  }
 }
 
-main().catch((err: Error) => {
-  console.error(err.message);
-  process.exit(1);
-});
+function isEntry(): boolean {
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1] ?? "")).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isEntry()) {
+  runCli().catch((err: Error) => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}
