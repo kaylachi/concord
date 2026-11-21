@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { readFileSync as readFixture } from "node:fs";
 import { Asset, StrKey } from "@stellar/stellar-sdk";
 import { Auth } from "../src/auth.js";
+import { runCli } from "../src/cli.js";
 import { StellarSource } from "../src/chain.js";
 import { Concord } from "../src/concord.js";
 import { loadConfig } from "../src/config.js";
@@ -706,6 +707,81 @@ describe("teams", () => {
     await owner.json(`/api/org/members/${me.user.id}`, { method: "DELETE" });
     expect((await cat.call("/api/overview")).status).toBe(401);
     expect((await cat.call("/api/auth/signin", { body: { email: "cat@alpha.test", password: "correct horse battery" } })).status).toBe(401);
+  });
+
+  it("lets the operator create a single-use 7-day invitation link via createInviteAs and CLI invite", async () => {
+    const h = harness();
+    const owner = await new Client(h.app).signUp("ann@alpha.test", "Alpha", "Ann");
+
+    // Default role is member and works once; expires after 7 days.
+    const memberInv = h.auth.createInviteAs(owner.orgId, "op-member@alpha.test");
+    expect(memberInv.role).toBe("member");
+    expect(h.auth.lookupInvite(memberInv.token)).toEqual({
+      org: "Alpha",
+      email: "op-member@alpha.test",
+      role: "member",
+      hasAccount: false,
+    });
+    const memberClient = new Client(h.app);
+    const joinedMember = await memberClient.json<{ org: { id: string }; role: string }>("/api/auth/invites/accept", {
+      body: { token: memberInv.token, name: "Member", password: "correct horse battery" },
+    });
+    expect(joinedMember).toMatchObject({ org: { id: owner.orgId }, role: "member" });
+    expect((await new Client(h.app).call("/api/auth/invites/accept", {
+      body: { token: memberInv.token, name: "Again", password: "correct horse battery" },
+    })).status).toBe(400);
+
+    // Expiry after 7 days.
+    const expiring = h.auth.createInviteAs(owner.orgId, "expiring@alpha.test");
+    h.now.value += 7 * 86_400_000 + 1;
+    expect(h.auth.lookupInvite(expiring.token)).toBeUndefined();
+
+    // CLI invite prints ${publicUrl}/#/invite/<token> with optional --role owner.
+    const dir = mkdtempSync(join(tmpdir(), "concord-cli-556-"));
+    try {
+      const rt = openRuntime(loadConfig({ CONCORD_DATA_DIR: dir, CONCORD_SIGNUP: "open" }));
+      let cliOrgId: string;
+      try {
+        const fastAuth = new Auth(rt.control, { signup: "open", cost: { N: 1024, r: 8, p: 1 } });
+        const signed = await fastAuth.signUp({
+          email: "seed@alpha.test",
+          name: "Seed",
+          orgName: "Operator Org",
+          password: "correct horse battery",
+        });
+        cliOrgId = signed.orgId;
+      } finally {
+        rt.close();
+      }
+
+      const lines: string[] = [];
+      const spy = vi.spyOn(console, "log").mockImplementation((msg?: unknown) => lines.push(String(msg ?? "")));
+      try {
+        await runCli(["invite", cliOrgId, "recovery-owner@alpha.test", "--role", "owner"], {
+          CONCORD_DATA_DIR: dir,
+          CONCORD_PUBLIC_URL: ORIGIN,
+        });
+      } finally {
+        spy.mockRestore();
+      }
+      const linkLine = lines.find((l) => l.startsWith(`${ORIGIN}/#/invite/`));
+      expect(linkLine).toBeTruthy();
+      const cliToken = linkLine!.split("/#/invite/")[1]!;
+
+      const verifyRt = openRuntime(loadConfig({ CONCORD_DATA_DIR: dir, CONCORD_SIGNUP: "open" }));
+      try {
+        expect(verifyRt.auth.lookupInvite(cliToken)).toEqual({
+          org: "Operator Org",
+          email: "recovery-owner@alpha.test",
+          role: "owner",
+          hasAccount: false,
+        });
+      } finally {
+        verifyRt.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
   });
 });
 
