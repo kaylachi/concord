@@ -1044,6 +1044,48 @@ export class Concord {
     });
   }
 
+  /** Imported journal entries with formatted units and latest-run movement match status. */
+  journalEntries(ref: string, options: { limit?: number; before?: string } = {}) {
+    const asset = this.asset(ref);
+    const where = ["asset_id = ?"];
+    const params: Array<string | number> = [asset.id];
+    if (options.before) {
+      const anchor = this.db.get<{ date: string }>(
+        "SELECT date FROM journal WHERE asset_id = ? AND ref = ?",
+        asset.id,
+        options.before,
+      );
+      if (anchor) {
+        where.push("(date < ? OR (date = ? AND ref < ?))");
+        params.push(anchor.date, anchor.date, options.before);
+      } else {
+        where.push("date < ?");
+        params.push(options.before);
+      }
+    }
+    const rawLimit = Number.isFinite(options.limit) ? Math.trunc(options.limit!) : 100;
+    params.push(Math.min(Math.max(rawLimit, 1), 1000));
+    const latest = this.latestRun(asset.id);
+    const movementMatches = (latest?.movement?.matches as Array<{ ref: string }> | undefined) ?? null;
+    const matchedRefs = movementMatches ? new Set(movementMatches.map((m) => m.ref)) : null;
+
+    return this.db
+      .all(`SELECT * FROM journal WHERE ${where.join(" AND ")} ORDER BY date DESC, ref DESC LIMIT ?`, ...params)
+      .map((r) => {
+        const entryRef = String(r.ref);
+        return {
+          ref: entryRef,
+          date: String(r.date),
+          type: String(r.type) as JournalEntry["type"],
+          from: r.from_addr ? String(r.from_addr) : null,
+          to: r.to_addr ? String(r.to_addr) : null,
+          units: formatUnits(BigInt(String(r.units)), asset.decimals),
+          txHash: r.tx_hash ? String(r.tx_hash) : null,
+          status: matchedRefs === null ? null : matchedRefs.has(entryRef) ? ("matched" as const) : ("unmatched" as const),
+        };
+      });
+  }
+
   importInstructions(ref: string, csv: string) {
     const asset = this.asset(ref);
     let parsed;
@@ -1084,6 +1126,22 @@ export class Concord {
       if (r.reason) i.reason = String(r.reason);
       return i;
     });
+  }
+
+  /** Imported control instructions with formatted units. */
+  instructionList(ref: string) {
+    const asset = this.asset(ref);
+    return this.db
+      .all("SELECT * FROM instructions WHERE asset_id = ? ORDER BY issued_at DESC, ref DESC", asset.id)
+      .map((r) => ({
+        ref: String(r.ref),
+        type: String(r.type) as Instruction["type"],
+        account: String(r.account),
+        units: r.units ? formatUnits(BigInt(String(r.units)), asset.decimals) : null,
+        issuedAt: String(r.issued_at),
+        approvedBy: r.approved_by ? String(r.approved_by) : null,
+        reason: r.reason ? String(r.reason) : null,
+      }));
   }
 
   // ── reconciliation ────────────────────────────────────────────────────────

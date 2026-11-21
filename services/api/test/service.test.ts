@@ -1,8 +1,10 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { StrKey, nativeToScVal } from "@stellar/stellar-sdk";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent, type AssetCandidate } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
 import { Concord, Invalid, NotFound, describeFailure } from "../src/concord.js";
@@ -1791,6 +1793,153 @@ describe("Concord", () => {
       },
     });
     expect(res2).toMatchObject({ entries: 2, added: 1, replaced: 1, removed: 1 });
+  });
+
+  it("lists journalEntries with latest-run match status, pagination, instructionList, and CLI commands", async () => {
+    const h = harness();
+    const client = await new Client(h.app).signUp("lists@example.test", "List Books");
+    const issuer = key();
+    const holder = key();
+    const concord = h.tenants.forOrg(client.orgId);
+    const asset = await concord.watchAsset({ network: "testnet", asset: `FUND:${issuer}`, fromLedger: 1 });
+    h.chain.push(asset.id, "mint", 3, { to: holder, amount: u(100), txHash: "tx-match" });
+    await concord.sync(asset.id);
+
+    concord.importRegister(asset.id, {
+      csv: `holder_id,account,units\nH1,${holder},100\n`,
+      asOf: at(2),
+    });
+    await concord.reconcile(asset.id);
+
+    concord.importJournal(
+      asset.id,
+      `ref,date,type,from_account,to_account,units,tx_hash\nJ1,${at(3)},issue,,${holder},100,tx-match\nJ2,${at(4)},transfer,${holder},${key()},25,tx-miss\n`,
+    );
+    concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at,approved_by,reason\nI1,freeze,${holder},, ${at(5)},alice,audit\n`.replace(", ", ","),
+    );
+
+    // Before movement reconciliation runs against the journal, status is null.
+    expect(concord.journalEntries("FUND")).toEqual([
+      {
+        ref: "J2",
+        date: at(4),
+        type: "transfer",
+        from: holder,
+        to: expect.any(String),
+        units: "25",
+        txHash: "tx-miss",
+        status: null,
+      },
+      {
+        ref: "J1",
+        date: at(3),
+        type: "issue",
+        from: null,
+        to: holder,
+        units: "100",
+        txHash: "tx-match",
+        status: null,
+      },
+    ]);
+
+    concord.importRegister(asset.id, {
+      csv: `holder_id,account,units\nH1,${holder},100\n`,
+      asOf: at(6),
+    });
+    await concord.reconcile(asset.id);
+
+    const listed = concord.journalEntries("FUND");
+    expect(listed.map((r) => [r.ref, r.status, r.units])).toEqual([
+      ["J2", "unmatched", "25"],
+      ["J1", "matched", "100"],
+    ]);
+    expect(concord.journalEntries("FUND", { limit: 1 })).toHaveLength(1);
+    expect(concord.journalEntries("FUND", { before: "J2" }).map((r) => r.ref)).toEqual(["J1"]);
+
+    expect(concord.instructionList("FUND")).toEqual([
+      {
+        ref: "I1",
+        type: "freeze",
+        account: holder,
+        units: null,
+        issuedAt: at(5),
+        approvedBy: "alice",
+        reason: "audit",
+      },
+    ]);
+
+    // Verify CLI commands against a disk-backed data directory.
+    const dir = mkdtempSync(join(tmpdir(), "concord-cli-543-"));
+    try {
+      const { openRuntime } = await import("../src/main.js");
+      const { loadConfig } = await import("../src/config.js");
+      const rt = openRuntime(loadConfig({ CONCORD_DATA_DIR: dir, CONCORD_SIGNUP: "open" }));
+      let orgId: string;
+      try {
+        const signed = await rt.auth.signUp({
+          email: "cli@example.test",
+          name: "CLI User",
+          orgName: "CLI Org",
+          password: "correct horse battery",
+        });
+        orgId = signed.orgId;
+        const ws = rt.tenants.forOrg(orgId);
+        // Seed an asset directly into sqlite so CLI does not touch network.
+        ws.db.insert(
+          `INSERT INTO assets (id, network, code, issuer, name, decimals, start_mode, state, created_at)
+           VALUES ('CASSETCLI', 'testnet', 'FUND', ?, 'Fund', 7, 'window', 'ready', ?)`,
+          issuer,
+          at(1),
+        );
+        ws.importJournal("FUND", `ref,date,type,from_account,to_account,units,tx_hash\nJ-CLI,${at(3)},issue,,${holder},42.5,tx-cli\n`);
+        ws.importInstructions("FUND", `ref,type,account,units,issued_at\nI-CLI,clawback,${holder},5,${at(4)}\n`);
+      } finally {
+        rt.close();
+      }
+
+      const { runCli } = await import("../src/cli.js");
+      const execCli = async (args: string[]) => {
+        const lines: string[] = [];
+        const spy = vi.spyOn(console, "log").mockImplementation((msg?: unknown) => lines.push(String(msg ?? "")));
+        try {
+          await runCli(args, { CONCORD_DATA_DIR: dir, CONCORD_ORG: orgId });
+          return lines.join("\n");
+        } finally {
+          spy.mockRestore();
+        }
+      };
+
+      const jOut = JSON.parse(await execCli(["journal-list", "FUND", "--json"])) as Array<Record<string, unknown>>;
+      expect(jOut).toEqual([
+        {
+          ref: "J-CLI",
+          date: at(3),
+          type: "issue",
+          from: null,
+          to: holder,
+          units: "42.5",
+          txHash: "tx-cli",
+          status: null,
+        },
+      ]);
+
+      const iOut = JSON.parse(await execCli(["instructions-list", "FUND", "--json"])) as Array<Record<string, unknown>>;
+      expect(iOut).toEqual([
+        {
+          ref: "I-CLI",
+          type: "clawback",
+          account: holder,
+          units: "5",
+          issuedAt: at(4),
+          approvedBy: null,
+          reason: null,
+        },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
   });
 });
 

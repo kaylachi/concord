@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { pathToFileURL } from "node:url";
 import { backup } from "node:sqlite";
 import { parseArgs } from "node:util";
 import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
@@ -14,9 +15,12 @@ function table(rows: Array<Record<string, unknown>>): void {
   console.table(rows);
 }
 
-async function main(): Promise<void> {
+export async function runCli(
+  argv: string[] = process.argv.slice(2),
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const { positionals, values } = parseArgs({
-    args: process.argv.slice(2),
+    args: argv,
     allowPositionals: true,
     options: {
       org: { type: "string" },
@@ -40,6 +44,8 @@ async function main(): Promise<void> {
       csv: { type: "string" },
       out: { type: "string" },
       note: { type: "string" },
+      limit: { type: "string" },
+      before: { type: "string" },
       json: { type: "boolean" },
       yes: { type: "boolean", short: "y" },
       help: { type: "boolean", short: "h" },
@@ -49,17 +55,18 @@ async function main(): Promise<void> {
   if (!command || values.help) return console.log(USAGE);
   if (command === "serve") return startServer();
 
-  const config = loadConfig();
+  const config = loadConfig(env);
   const runtime = openRuntime(config);
-  const { auth, tenants } = runtime;
-  const actor: Actor = { id: "cli", label: `cli:${userInfo().username}` };
-  const need = (value: string | undefined, what: string): string => {
-    if (!value) throw new Error(`missing ${what}\n\n${USAGE}`);
-    return value;
-  };
-  const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []);
-  const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
-  const orgRef = values.org ?? process.env.CONCORD_ORG;
+  try {
+    const { auth, tenants } = runtime;
+    const actor: Actor = { id: "cli", label: `cli:${userInfo().username}` };
+    const need = (value: string | undefined, what: string): string => {
+      if (!value) throw new Error(`missing ${what}\n\n${USAGE}`);
+      return value;
+    };
+    const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []);
+    const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
+    const orgRef = values.org ?? env.CONCORD_ORG;
   const workspace = (): Concord => tenants.forOrg(auth.findOrg(need(orgRef, "--org (see `concord orgs`)")).id);
   const printRun = (run: Awaited<ReturnType<Concord["reconcile"]>>) => {
     if (values.json) return out(run);
@@ -228,6 +235,49 @@ async function main(): Promise<void> {
     case "instructions":
       out(workspace().importInstructions(need(a, "asset"), readFileSync(need(b, "file"), "utf8")));
       break;
+    case "journal-list": {
+      const limit = values.limit ? Number(values.limit) : undefined;
+      const rows = workspace().journalEntries(need(a, "asset"), {
+        ...(limit !== undefined ? { limit } : {}),
+        ...(values.before ? { before: values.before } : {}),
+      });
+      if (values.json) {
+        out(rows);
+        break;
+      }
+      table(
+        rows.map((r) => ({
+          ref: r.ref,
+          date: r.date,
+          type: r.type,
+          from: r.from ?? "",
+          to: r.to ?? "",
+          units: r.units,
+          txHash: r.txHash ?? "",
+          status: r.status ?? "",
+        })),
+      );
+      break;
+    }
+    case "instructions-list": {
+      const rows = workspace().instructionList(need(a, "asset"));
+      if (values.json) {
+        out(rows);
+        break;
+      }
+      table(
+        rows.map((r) => ({
+          ref: r.ref,
+          type: r.type,
+          account: r.account,
+          units: r.units ?? "",
+          issuedAt: r.issuedAt,
+          approvedBy: r.approvedBy ?? "",
+          reason: r.reason ?? "",
+        })),
+      );
+      break;
+    }
     case "reconcile":
       printRun(await workspace().reconcile(need(a, "asset"), values.register ? Number(values.register) : undefined, actor));
       break;
@@ -297,10 +347,22 @@ async function main(): Promise<void> {
     default:
       throw new Error(`unknown command "${command}"\n\n${USAGE}`);
   }
-  runtime.close();
+  } finally {
+    runtime.close();
+  }
 }
 
-main().catch((err: Error) => {
-  console.error(err.message);
-  process.exit(1);
-});
+function isEntry(): boolean {
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1] ?? "")).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isEntry()) {
+  runCli().catch((err: Error) => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}
