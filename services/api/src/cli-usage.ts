@@ -23,6 +23,8 @@ Workspace commands. Name the workspace with --org <id | exact name> or CONCORD_O
   instructions ASSET FILE          import control instructions
   instructions-list ASSET          list imported control instructions
   reconcile ASSET [--register ID]  re-run a reconciliation
+  runs ASSET [--limit N]           list reconciliation runs for an asset
+  run ID                           show one reconciliation run
   action ASSET dividend --record ISO --rate R [--pay-asset A] [--payer G...] [--until ISO]
   action ASSET split|redemption --record ISO --ratio NUM:DEN [--until ISO]
         [--label TEXT] [--exclude A,B]
