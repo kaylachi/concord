@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { readFileSync as readFixture } from "node:fs";
 import { Asset, StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { Auth } from "../src/auth.js";
+import { runCli } from "../src/cli.js";
 import { StellarSource } from "../src/chain.js";
 import { Concord } from "../src/concord.js";
 import { loadConfig } from "../src/config.js";
@@ -707,6 +708,81 @@ describe("teams", () => {
     await owner.json(`/api/org/members/${me.user.id}`, { method: "DELETE" });
     expect((await cat.call("/api/overview")).status).toBe(401);
     expect((await cat.call("/api/auth/signin", { body: { email: "cat@alpha.test", password: "correct horse battery" } })).status).toBe(401);
+  });
+
+  it("lets the operator create a single-use 7-day invitation link via createInviteAs and CLI invite", async () => {
+    const h = harness();
+    const owner = await new Client(h.app).signUp("ann@alpha.test", "Alpha", "Ann");
+
+    // Default role is member and works once; expires after 7 days.
+    const memberInv = h.auth.createInviteAs(owner.orgId, "op-member@alpha.test");
+    expect(memberInv.role).toBe("member");
+    expect(h.auth.lookupInvite(memberInv.token)).toEqual({
+      org: "Alpha",
+      email: "op-member@alpha.test",
+      role: "member",
+      hasAccount: false,
+    });
+    const memberClient = new Client(h.app);
+    const joinedMember = await memberClient.json<{ org: { id: string }; role: string }>("/api/auth/invites/accept", {
+      body: { token: memberInv.token, name: "Member", password: "correct horse battery" },
+    });
+    expect(joinedMember).toMatchObject({ org: { id: owner.orgId }, role: "member" });
+    expect((await new Client(h.app).call("/api/auth/invites/accept", {
+      body: { token: memberInv.token, name: "Again", password: "correct horse battery" },
+    })).status).toBe(400);
+
+    // Expiry after 7 days.
+    const expiring = h.auth.createInviteAs(owner.orgId, "expiring@alpha.test");
+    h.now.value += 7 * 86_400_000 + 1;
+    expect(h.auth.lookupInvite(expiring.token)).toBeUndefined();
+
+    // CLI invite prints ${publicUrl}/#/invite/<token> with optional --role owner.
+    const dir = mkdtempSync(join(tmpdir(), "concord-cli-556-"));
+    try {
+      const rt = openRuntime(loadConfig({ CONCORD_DATA_DIR: dir, CONCORD_SIGNUP: "open" }));
+      let cliOrgId: string;
+      try {
+        const fastAuth = new Auth(rt.control, { signup: "open", cost: { N: 1024, r: 8, p: 1 } });
+        const signed = await fastAuth.signUp({
+          email: "seed@alpha.test",
+          name: "Seed",
+          orgName: "Operator Org",
+          password: "correct horse battery",
+        });
+        cliOrgId = signed.orgId;
+      } finally {
+        rt.close();
+      }
+
+      const lines: string[] = [];
+      const spy = vi.spyOn(console, "log").mockImplementation((msg?: unknown) => lines.push(String(msg ?? "")));
+      try {
+        await runCli(["invite", cliOrgId, "recovery-owner@alpha.test", "--role", "owner"], {
+          CONCORD_DATA_DIR: dir,
+          CONCORD_PUBLIC_URL: ORIGIN,
+        });
+      } finally {
+        spy.mockRestore();
+      }
+      const linkLine = lines.find((l) => l.startsWith(`${ORIGIN}/#/invite/`));
+      expect(linkLine).toBeTruthy();
+      const cliToken = linkLine!.split("/#/invite/")[1]!;
+
+      const verifyRt = openRuntime(loadConfig({ CONCORD_DATA_DIR: dir, CONCORD_SIGNUP: "open" }));
+      try {
+        expect(verifyRt.auth.lookupInvite(cliToken)).toEqual({
+          org: "Operator Org",
+          email: "recovery-owner@alpha.test",
+          role: "owner",
+          hasAccount: false,
+        });
+      } finally {
+        verifyRt.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
   });
 });
 
@@ -1478,6 +1554,70 @@ describe("chain endpoints", () => {
       }
     },
   );
+  it("baseline() handles an empty first page, fails over on invalid Latest-Ledger headers, and stops after 200 records with no next link", async () => {
+    const issuer = key();
+    const firstPath = `/accounts?asset=FUND%3A${issuer}&limit=200&order=asc`;
+    const h1 = "https://h1.example";
+    const h2 = "https://h2.example";
+    const multiHorizonNet = {
+      name: "mainnet" as const,
+      passphrase: MAINNET_PASSPHRASE,
+      rpc: [{ url: "https://rpc.example" }],
+      horizon: [{ url: h1 }, { url: h2 }],
+    };
+    const record = (id: string, balance: string) => ({
+      account_id: id,
+      balances: [{ asset_code: "FUND", asset_issuer: issuer, balance, is_authorized: true }],
+    });
+
+    // 1. Empty first page returns an empty map at the page's ledger.
+    const empty = scripted({
+      [`https://horizon.example${firstPath}`]: [
+        () => new Response(JSON.stringify({ _links: {}, _embedded: { records: [] } }), { headers: { "latest-ledger": "77" } }),
+      ],
+    });
+    const emptyBaseline = await new StellarSource(network(["https://rpc.example"]), empty.deps).baseline("FUND", issuer, 7);
+    expect(emptyBaseline.ledger).toBe(77);
+    expect(emptyBaseline.openings.size).toBe(0);
+    expect(empty.calls.map((c) => c.url)).toEqual([`https://horizon.example${firstPath}`]);
+
+    // 2. Missing, '0', or 'abc' Latest-Ledger header fails over to the next Horizon endpoint.
+    for (const badHeaders of [{}, { "latest-ledger": "0" }, { "latest-ledger": "abc" }] as Array<Record<string, string>>) {
+      const failoverHolder = key();
+      const failover = scripted({
+        [`${h1}${firstPath}`]: [
+          () => new Response(JSON.stringify({ _links: {}, _embedded: { records: [] } }), { headers: badHeaders }),
+        ],
+        [`${h2}${firstPath}`]: [
+          () =>
+            new Response(
+              JSON.stringify({ _links: {}, _embedded: { records: [record(failoverHolder, "5.0000000")] } }),
+              { headers: { "latest-ledger": "88" } },
+            ),
+        ],
+      });
+      const res = await new StellarSource(multiHorizonNet, failover.deps).baseline("FUND", issuer, 7);
+      expect(res.ledger).toBe(88);
+      expect(res.openings.size).toBe(1);
+      expect(res.openings.get(failoverHolder)).toEqual({ amount: u(5), asOfLedger: 88, authorized: true });
+      expect(failover.calls.map((c) => c.url)).toEqual([`${h1}${firstPath}`, `${h2}${firstPath}`]);
+    }
+
+    // 3. Exactly 200 records with no _links.next stops after one request.
+    const twoHundred = Array.from({ length: 200 }, () => record(key(), "1.0000000"));
+    const singleFull = scripted({
+      [`https://horizon.example${firstPath}`]: [
+        () =>
+          new Response(JSON.stringify({ _links: {}, _embedded: { records: twoHundred } }), {
+            headers: { "latest-ledger": "99" },
+          }),
+      ],
+    });
+    const fullBaseline = await new StellarSource(network(["https://rpc.example"]), singleFull.deps).baseline("FUND", issuer, 7);
+    expect(fullBaseline.ledger).toBe(99);
+    expect(fullBaseline.openings.size).toBe(200);
+    expect(singleFull.calls.map((c) => c.url)).toEqual([`https://horizon.example${firstPath}`]);
+  });
 
   it("finds classic assets by code, most widely held first", async () => {
     const [i1, i2] = [key(), key()];

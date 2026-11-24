@@ -2094,6 +2094,43 @@ describe("Concord", () => {
     }
   });
 
+  it("does not let a failed deferred watch in indexing state consume maxAssetsPerOrg", async () => {
+    const h = harness({ maxAssetsPerOrg: 1 });
+    h.chain.baselineResult = undefined;
+    const client = await new Client(h.app).signUp("cap@example.test", "Quota Test");
+    const issuer = key();
+
+    const first = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `BAD:${issuer}` },
+    });
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as { id: string; state: string };
+    expect(firstBody.state).toBe("indexing");
+
+    await vi.waitFor(async () => {
+      const detail = await client.json<{ state: string; syncError?: string }>(`/api/assets/${firstBody.id}`);
+      expect(detail.state).toBe("indexing");
+      expect(detail.syncError).toBeTruthy();
+    });
+
+    const second = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `GOOD:${issuer}`, fromLedger: 1 },
+    });
+    expect(second.status).toBe(201);
+    const secondBody = (await second.json()) as { id: string };
+
+    await vi.waitFor(async () => {
+      const detail = await client.json<{ state: string }>(`/api/assets/${secondBody.id}`);
+      expect(detail.state).toBe("ready");
+    });
+
+    const third = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `THIRD:${issuer}`, fromLedger: 1 },
+    });
+    expect(third.status).toBe(400);
+    expect(await third.text()).toContain("A workspace can watch 1 assets");
+  });
+
   it("supports replace mode in importInstructions with counts, parse-issue guard, and controls update", async () => {
     const h = harness();
     const client = await new Client(h.app).signUp("replace@example.test", "Replace Instructions");

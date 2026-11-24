@@ -44,6 +44,7 @@ export async function runCli(
       csv: { type: "string" },
       out: { type: "string" },
       note: { type: "string" },
+      role: { type: "string" },
       limit: { type: "string" },
       before: { type: "string" },
       json: { type: "boolean" },
@@ -101,6 +102,17 @@ export async function runCli(
       console.log(`${config.publicUrl}/#/reset/${auth.createResetToken(need(a, "email"))}`);
       console.log("Valid for one day, once. Send it to the account's owner over a channel you trust.");
       break;
+    case "invite": {
+      const org = auth.findOrg(need(a, "workspace"));
+      const email = need(b, "email");
+      if (values.role !== undefined && values.role !== "owner" && values.role !== "member") {
+        throw new Error("--role must be owner or member");
+      }
+      const invite = auth.createInviteAs(org.id, email, values.role ?? "member", actor.label);
+      console.log(`${config.publicUrl}/#/invite/${invite.token}`);
+      console.log("Valid for 7 days, once. Send it to the invited person over a channel you trust.");
+      break;
+    }
     case "org-delete": {
       const org = auth.findOrg(need(a, "workspace"));
       auth.deleteOrg(org.id);

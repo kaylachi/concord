@@ -425,21 +425,28 @@ export class Auth {
 
   /** Returns the link token once. It is not recoverable afterwards. */
   createInvite(session: SessionInfo, emailInput: unknown, roleInput: unknown) {
+    return this.createInviteAs(session.org.id, emailInput, roleInput, session.user.id);
+  }
+
+  /** Create an invitation link without an active session (for CLI / operator recovery). */
+  createInviteAs(orgId: string, emailInput: unknown, roleInput: unknown = "member", createdBy = "operator") {
+    if (!this.orgExists(orgId)) throw new Rejected("No such workspace.");
     const email = cleanEmail(emailInput);
     const role: Role = roleInput === "owner" ? "owner" : "member";
     const existing = this.userByEmail(email);
-    if (existing && this.db.get("SELECT 1 AS x FROM memberships WHERE org_id = ? AND user_id = ?", session.org.id, existing.id)) {
+    if (existing && this.db.get("SELECT 1 AS x FROM memberships WHERE org_id = ? AND user_id = ?", orgId, existing.id)) {
       throw new Rejected("That person is already in this workspace.");
     }
     const token = newToken();
     const id = newId();
+    const expiresAt = this.iso(INVITE_LIFE_MS);
     this.db.tx(() => {
       // A fresh link for the same address replaces the one still pending.
-      this.db.write("DELETE FROM invites WHERE org_id = ? AND email = ? AND accepted_at IS NULL", session.org.id, email);
+      this.db.write("DELETE FROM invites WHERE org_id = ? AND email = ? AND accepted_at IS NULL", orgId, email);
       const limit = this.options.maxInvites ?? DEFAULT_MAX_INVITES;
       const count = this.db.get<{ n: number }>(
         "SELECT COUNT(*) AS n FROM invites WHERE org_id = ? AND accepted_at IS NULL AND expires_at > ?",
-        session.org.id,
+        orgId,
         this.iso(),
       )?.n ?? 0;
       if (count >= limit) throw new Rejected(`A workspace can have at most ${limit} pending invitations.`);
@@ -447,15 +454,15 @@ export class Auth {
         "INSERT INTO invites (id, token_hash, org_id, email, role, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         id,
         sha256(token),
-        session.org.id,
+        orgId,
         email,
         role,
-        session.user.id,
+        createdBy,
         this.iso(),
-        this.iso(INVITE_LIFE_MS),
+        expiresAt,
       );
     });
-    return { id, token, email, role, expiresAt: this.iso(INVITE_LIFE_MS) };
+    return { id, token, email, role, expiresAt };
   }
 
   invites(orgId: string) {
