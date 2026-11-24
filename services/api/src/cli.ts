@@ -45,6 +45,7 @@ export async function runCli(
       out: { type: "string" },
       note: { type: "string" },
       role: { type: "string" },
+      limit: { type: "string" },
       json: { type: "boolean" },
       yes: { type: "boolean", short: "y" },
       help: { type: "boolean", short: "h" },
@@ -248,6 +249,34 @@ export async function runCli(
     case "reconcile":
       printRun(await workspace().reconcile(need(a, "asset"), values.register ? Number(values.register) : undefined, actor));
       break;
+    case "runs": {
+      const limit = values.limit ? Number(values.limit) : undefined;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error("--limit must be a positive integer");
+      }
+      const all = workspace().runs(need(a, "asset"));
+      const items = limit !== undefined ? all.slice(0, limit) : all;
+      if (values.json) {
+        out(items);
+        break;
+      }
+      table(
+        items.map((r) => ({
+          id: r.id,
+          asOf: r.asOf,
+          status: r.status,
+          openBreaks: r.openBreaks,
+        })),
+      );
+      break;
+    }
+    case "run": {
+      const concord = workspace();
+      const id = Number(need(a, "run id"));
+      if (!Number.isSafeInteger(id) || id < 1) throw new Error("run id must be a positive integer");
+      printRun(concord.run(id));
+      break;
+    }
     case "action": {
       const type = need(b, "action type") as ActionInput["type"];
       const input: ActionInput = { type, recordTime: need(values.record, "--record"), exclude: list(values.exclude) };
